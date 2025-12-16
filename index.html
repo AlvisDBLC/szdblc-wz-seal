@@ -6,8 +6,13 @@
   <title>WZ用印系统</title>
   <style>
     :root{--bg:#0b0f14;--panel:#0f1620;--line:#1b2a3a;--text:#eaf2ff;--muted:#9fb2c8;--neon:#39ff14;}
-    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#0b0f14,#05070a);color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial;}
+    *{box-sizing:border-box;}
+    body{
+      margin:0;min-height:100vh;
+      background:linear-gradient(180deg,#0b0f14,#05070a);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",Arial;
+    }
     .wrap{max-width:1200px;margin:0 auto;padding:18px;}
     .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
     .brand{display:flex;align-items:center;gap:12px}
@@ -32,7 +37,7 @@
     .overlay{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}
     .seal{
       position:absolute;
-      width:140px; /* 默认显示尺寸，用户可调 */
+      width:140px;
       opacity:.85;
       cursor:move;
       pointer-events:auto;
@@ -40,11 +45,20 @@
       -webkit-user-drag:none;
       filter: drop-shadow(0 0 8px rgba(57,255,20,.08));
     }
-    input{border:1px solid var(--line);background:#0b121a;color:var(--text);padding:10px;border-radius:12px;outline:none;width:100%}
+    input{
+      border:1px solid var(--line);
+      background:#0b121a;
+      color:var(--text);
+      padding:10px;
+      border-radius:12px;
+      outline:none;
+      width:100%;
+      max-width:100%;
+      min-width:0;
+    }
     label{color:var(--muted);font-size:12px}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .row > div{flex:1;min-width:120px}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+    .row > div{flex:1;min-width:0}
   </style>
 </head>
 <body>
@@ -57,9 +71,7 @@
         <div class="sub">可视化拖拽盖章（本地处理，不上传文件）</div>
       </div>
     </div>
-    <div class="row">
-      <button class="btn" id="backBtn">返回系统入口</button>
-    </div>
+    <button class="btn" id="backBtn">返回系统入口</button>
   </div>
 
   <div class="panel">
@@ -69,27 +81,22 @@
         <input id="pdfFile" type="file" accept="application/pdf"/>
       </div>
       <div style="flex:1;min-width:200px">
-        <label>印章文件</label><br/>
-        <div class="hint"><span class="mono">assets/wz.png</span>（透明 PNG）</div>
+        <div class="hint">印章已内置（不显示路径）</div>
       </div>
     </div>
     <div id="msg" class="hint" style="margin-top:8px"></div>
   </div>
 
   <div class="layout" style="margin-top:12px">
-    <!-- left: pages -->
     <div class="panel">
       <div class="hint" style="margin-bottom:8px">页列表（点击切换）</div>
       <div id="pages" class="pages"></div>
     </div>
 
-    <!-- center: viewer -->
     <div class="panel">
       <div class="row" style="justify-content:space-between">
         <div class="hint" id="pageTitle">未加载 PDF</div>
-        <div class="row" style="gap:8px">
-          <button class="btn" id="clearBtn">清除本页盖章</button>
-        </div>
+        <button class="btn" id="clearBtn">清除本页盖章</button>
       </div>
 
       <div class="viewer" style="margin-top:10px">
@@ -100,17 +107,16 @@
       </div>
 
       <div class="hint" style="margin-top:10px">
-        拖动印章到位置即可（每页单独保存）。需要盖多页就切换页后继续拖。
+        拖动印章到位置即可（每页单独保存）。
       </div>
     </div>
 
-    <!-- right: controls -->
     <div class="panel">
       <div class="hint" style="margin-bottom:8px">印章参数（当前页）</div>
 
       <div class="row">
         <div>
-          <label>印章显示宽度（px，影响预览+导出）</label>
+          <label>印章显示宽度（px）</label>
           <input id="sealPx" type="number" min="40" step="10" value="140"/>
         </div>
       </div>
@@ -127,21 +133,28 @@
       </div>
 
       <div class="hint" style="margin-top:10px">
-        说明：PDF 合成在浏览器本地完成；不会上传服务器；导出为一个新 PDF。
+        PDF 合成在浏览器本地完成；不会上传服务器；导出为一个新 PDF。
       </div>
     </div>
   </div>
 </div>
 
-<!-- pdf.js (render preview) -->
-<script src="https://unpkg.com/pdfjs-dist@4.6.82/build/pdf.min.js"></script>
+<!-- pdf.js (preview) - use stable 3.x for better compatibility -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
-  // pdf.js worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.6.82/build/pdf.worker.min.js";
+  // Guard: if CDN blocked, show message instead of crashing
+  if (!window.pdfjsLib) {
+    document.getElementById("msg").textContent =
+      "加载失败：PDF 预览组件（pdf.js）未能加载。请检查网络是否拦截 jsdelivr。";
+    document.getElementById("msg").className = "hint err";
+  } else {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  }
 </script>
 
-<!-- pdf-lib (write stamp into PDF) -->
-<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<!-- pdf-lib (write stamp) -->
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
 <script>
   const $ = (id)=>document.getElementById(id);
@@ -159,26 +172,22 @@
     msgEl.className = "hint " + (type==="ok" ? "ok" : type==="err" ? "err" : "");
   }
 
-  let pdfDocJS = null;         // pdf.js doc
-  let pdfBytes = null;         // original bytes
+  let pdfDocJS = null;
+  let pdfBytes = null;
   let pageCount = 0;
   let currentPage = 1;
 
-  // per-page stamp state:
-  // stamps[pageNo] = { xPx, yPx, wPx, opacity }   // x/y are in canvas pixels from top-left
-  const stamps = {};
+  const stamps = {}; // per-page
 
-  // current render scale and viewport
   let renderScale = 1;
   let viewportW = 0;
   let viewportH = 0;
 
-  // Load seal (ensure available)
   sealEl.onerror = ()=> setMsg("印章图片加载失败：请确认仓库存在 assets/wz.png", "err");
 
-  // Upload PDF
   $("pdfFile").addEventListener("change", async () => {
     try {
+      if (!window.pdfjsLib) return; // already warned
       const file = $("pdfFile").files[0];
       if (!file) return;
       if (file.size > 10 * 1024 * 1024) return setMsg("PDF 超过 10MB，请换小一点的文件", "err");
@@ -188,7 +197,6 @@
       pdfDocJS = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
       pageCount = pdfDocJS.numPages;
 
-      // reset state
       for (const k of Object.keys(stamps)) delete stamps[k];
       currentPage = 1;
 
@@ -207,8 +215,7 @@
     for (let i=1;i<=pageCount;i++){
       const div = document.createElement("div");
       div.className = "pageItem" + (i===currentPage ? " active" : "");
-      div.innerHTML = `<div class="t">第 ${i} 页</div>
-        <div class="s">${stamps[i] ? "已设置盖章位置" : "未盖章"}</div>`;
+      div.innerHTML = `<div class="t">第 ${i} 页</div><div class="s">${stamps[i] ? "已设置盖章位置" : "未盖章"}</div>`;
       div.onclick = async ()=> {
         currentPage = i;
         highlightPageList();
@@ -228,7 +235,6 @@
   async function renderPage(pageNo) {
     const page = await pdfDocJS.getPage(pageNo);
 
-    // scale to fit container width (up to ~900px)
     const containerMax = Math.min(900, overlay.parentElement.clientWidth - 24);
     const unscaled = page.getViewport({ scale: 1 });
     renderScale = containerMax / unscaled.width;
@@ -240,7 +246,6 @@
     canvas.width = viewportW;
     canvas.height = viewportH;
 
-    // overlay should match canvas
     overlay.style.width = viewportW + "px";
     overlay.style.height = viewportH + "px";
 
@@ -248,23 +253,13 @@
 
     $("pageTitle").textContent = `当前：第 ${pageNo} 页（拖拽印章进行定位）`;
 
-    // apply UI settings
     applySealStyleFromInputs();
 
-    // place or hide seal for this page
     const st = stamps[pageNo];
     if (st) {
       showSealAt(st.xPx, st.yPx, st.wPx, st.opacity);
     } else {
-      // default: center-ish
-      const wPx = parseInt($("sealPx").value || "140", 10);
-      const x = Math.max(0, Math.round((viewportW - wPx) * 0.75));
-      const y = Math.max(0, Math.round((viewportH - wPx) * 0.75));
-      showSealAt(x, y, wPx, parseFloat($("opacity").value || "0.85"));
-      // BUT do not commit until user drags or changes settings
-      // keep as "preview only"
-      delete stamps[pageNo];
-      highlightPageList();
+      sealEl.style.display = "none";
     }
   }
 
@@ -283,27 +278,23 @@
     sealEl.style.opacity = String(opacity);
   }
 
-  // When user changes inputs, update current page stamp + preview
-  $("sealPx").addEventListener("input", ()=> {
-    applySealStyleFromInputs();
-    commitCurrentStampFromDOM();
-  });
-  $("opacity").addEventListener("input", ()=> {
-    applySealStyleFromInputs();
-    commitCurrentStampFromDOM();
-  });
+  $("sealPx").addEventListener("input", ()=> { applySealStyleFromInputs(); commitCurrentStampFromDOM(true); });
+  $("opacity").addEventListener("input", ()=> { applySealStyleFromInputs(); commitCurrentStampFromDOM(true); });
 
-  function commitCurrentStampFromDOM() {
-    if (sealEl.style.display === "none") return;
+  function commitCurrentStampFromDOM(keepIfHidden=false) {
+    if (sealEl.style.display === "none" && !keepIfHidden) return;
     const xPx = parseFloat(sealEl.style.left || "0");
     const yPx = parseFloat(sealEl.style.top || "0");
     const wPx = parseFloat(sealEl.style.width || "140");
     const opacity = parseFloat(sealEl.style.opacity || "0.85");
-    stamps[currentPage] = { xPx, yPx, wPx, opacity };
-    highlightPageList();
+    // only commit if visible
+    if (sealEl.style.display !== "none") {
+      stamps[currentPage] = { xPx, yPx, wPx, opacity };
+      highlightPageList();
+    }
   }
 
-  // Drag logic
+  // Drag
   let dragging = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
@@ -323,15 +314,22 @@
     let x = e.clientX - ov.left - dragOffsetX;
     let y = e.clientY - ov.top - dragOffsetY;
 
-    // clamp within overlay
     const w = parseFloat(sealEl.style.width || "140");
-    const h = w; // approx; we keep square in preview, actual ratio applied in PDF embedding
+    const h = w; // preview clamp
+
     x = Math.max(0, Math.min(viewportW - w, x));
     y = Math.max(0, Math.min(viewportH - h, y));
 
     sealEl.style.left = Math.round(x) + "px";
     sealEl.style.top = Math.round(y) + "px";
-    commitCurrentStampFromDOM();
+
+    stamps[currentPage] = {
+      xPx: parseFloat(sealEl.style.left),
+      yPx: parseFloat(sealEl.style.top),
+      wPx: w,
+      opacity: parseFloat(sealEl.style.opacity || "0.85"),
+    };
+    highlightPageList();
     e.preventDefault();
   });
 
@@ -341,7 +339,21 @@
     e.preventDefault();
   });
 
-  // Clear current page stamp
+  // Click on canvas area to place stamp if not shown yet
+  canvas.addEventListener("click", (e)=>{
+    if (!pdfBytes) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.round((e.clientX - rect.left) * (canvas.width / rect.width)));
+    const y = Math.max(0, Math.round((e.clientY - rect.top) * (canvas.height / rect.height)));
+    const wPx = parseInt($("sealPx").value || "140", 10);
+    const opacity = parseFloat($("opacity").value || "0.85");
+    const clampedX = Math.max(0, Math.min(viewportW - wPx, x));
+    const clampedY = Math.max(0, Math.min(viewportH - wPx, y));
+    showSealAt(clampedX, clampedY, wPx, opacity);
+    stamps[currentPage] = { xPx: clampedX, yPx: clampedY, wPx, opacity };
+    highlightPageList();
+  });
+
   $("clearBtn").onclick = ()=> {
     delete stamps[currentPage];
     sealEl.style.display = "none";
@@ -349,25 +361,22 @@
     setMsg(`已清除：第 ${currentPage} 页盖章设置`, "ok");
   };
 
-  // Generate stamped PDF
   $("genBtn").onclick = async ()=> {
     try {
       if (!pdfBytes) return setMsg("请先上传 PDF", "err");
       const keys = Object.keys(stamps);
-      if (keys.length === 0) return setMsg("你还没有在任何页面设置盖章位置", "err");
+      if (keys.length === 0) return setMsg("你还没有在任何页面设置盖章位置（点击页面放置或拖拽）", "err");
 
-      setMsg("正在生成盖章 PDF…（页数多时可能需要几秒）");
+      setMsg("正在生成盖章 PDF…");
 
-      // Load seal bytes
       const sealResp = await fetch("./assets/wz.png", { cache: "no-store" });
-      if (!sealResp.ok) throw new Error("读取印章失败：assets/wz.png");
+      if (!sealResp.ok) throw new Error("读取印章失败");
       const sealBytes = new Uint8Array(await sealResp.arrayBuffer());
 
       const { PDFDocument } = PDFLib;
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const png = await pdfDoc.embedPng(sealBytes);
 
-      // For each stamped page, map canvas px -> PDF points
       for (const pStr of keys) {
         const pNo = parseInt(pStr, 10);
         const st = stamps[pNo];
@@ -377,21 +386,11 @@
         const pw = page.getWidth();
         const ph = page.getHeight();
 
-        // px -> point scale
-        // We rendered using pdf.js viewport (renderScale). Canvas width corresponds to PDF width * renderScale.
-        // So 1px in canvas = 1/renderScale points (approximately)
         const ptPerPx = 1 / renderScale;
-
         const xPt = st.xPx * ptPerPx;
-
-        // NOTE: canvas y is from top; PDF y is from bottom
         const yFromTopPt = st.yPx * ptPerPx;
-
-        // seal width in points
         const wPt = st.wPx * ptPerPx;
         const hPt = wPt * (png.height / png.width);
-
-        // convert y
         const yPt = ph - yFromTopPt - hPt;
 
         page.drawImage(png, { x: xPt, y: yPt, width: wPt, height: hPt, opacity: st.opacity });
